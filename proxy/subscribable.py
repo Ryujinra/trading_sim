@@ -1,3 +1,6 @@
+from event import Event
+
+
 class Handler(object):
 
     def handler(self, event):
@@ -14,5 +17,7 @@ class Subscribable(object):
             self.subscribers.append(subscriber)
 
     def notify_subscribers(self, event):
+        if not isinstance(event, Event):
+            return
         for subscriber in self.subscribers:
             subscriber.handler(event)

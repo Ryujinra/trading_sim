@@ -1,5 +1,12 @@
 import json
 
+from enum import Enum
+
+
+class EventType:
+    REGISTER_STRATEGY = 'REGISTER_STRATEGY'
+    NEW_CANDLESTICK = 'NEW_CANDLESTICK'
+
 
 class Event(object):
 

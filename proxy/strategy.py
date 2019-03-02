@@ -1,7 +1,7 @@
 import threading
 
 from subscribable import Subscribable
-from event import Event
+from event import Event, EventType
 
 
 class Ticker(Subscribable):
@@ -23,4 +23,4 @@ class Strategy(Ticker):
     def __init__(self, proxy, conn, addr, interval=1):
         Ticker.__init__(self)
         self.add_subscriber(proxy)
-        self.tick(Event('NEW_CANDLESTICK', '', conn, addr))
+        self.tick(Event(EventType.NEW_CANDLESTICK, '', conn, addr))

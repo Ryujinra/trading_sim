@@ -23,6 +23,7 @@ class Proxy(Handler):
 
     HOST = 'localhost'
     PORT = 5000
+    BUFFER_SIZE = 1024
 
     def __init__(self):
         self.proxy = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -33,15 +34,14 @@ class Proxy(Handler):
         while True:
             self.proxy.listen()
             conn, addr = self.proxy.accept()
-            with conn:
-                data = conn.recv(1024)
-                try:
-                    data = json.loads(data)
-                except ValueError:
-                    continue
-                if "type" and "payload" in data:
-                    logger.info(data)
-                    self.handler(data)
+            data = conn.recv(BUFFER_SIZE)
+            try:
+                data = json.loads(data)
+            except ValueError:
+                continue
+            if "type" and "payload" in data:
+                logger.info(data)
+                self.handler(data)
 
     def handler(self, event):
         logger.info(event['type'])

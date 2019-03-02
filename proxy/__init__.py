@@ -22,7 +22,7 @@ class Handler(object):
 class Proxy(Handler):
 
     HOST = 'localhost'
-    PORT = 5001
+    PORT = 5000
     BUFFER_SIZE = 1024
 
     def __init__(self):
@@ -56,7 +56,8 @@ class Proxy(Handler):
             if (conn, addr) in self.strategies:
                 logger.info(
                     "Connection already exist: {}: instantiating new "
-                    "strategy".format(conn.getpeername()))
+                    "strategy and halting current " "strategy".format(conn.getpeername()))
+                self.strategies[(conn, addr)].running = False
             self.strategies[(conn, addr)] = Strategy(self, conn, addr)
         elif action['type'] == 'NEW_CANDLESTICK':
             pass
@@ -96,8 +97,11 @@ class Ticker(Subscribable):
     def __init__(self, interval=1):
         Subscribable.__init__(self)
         self.interval = interval
+        self.running = True
 
     def tick(self, event):
+        if not self.running:
+            return
         self.notify_subscribers(event)
         threading.Timer(self.interval, self.tick, [event]).start()
 

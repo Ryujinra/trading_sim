@@ -55,7 +55,8 @@ class Proxy(Handler):
         if action['type'] == 'REGISTER_STRATEGY':
             if (conn, addr) in self.strategies:
                 logger.info(
-                    "Connection already exist: {}: instantiating new strategy".format(conn.getpeername()))
+                    "Connection already exist: {}: instantiating new "
+                    "strategy".format(conn.getpeername()))
             self.strategies[(conn, addr)] = Strategy(self, conn, addr)
         elif action['type'] == 'NEW_CANDLESTICK':
             pass

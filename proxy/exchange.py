@@ -23,21 +23,3 @@ class ExchangeType(Enum):
             if exchange.name == test_exchange:
                 return True
         return False
-
-
-class PoloniexWrapper(object):
-
-    def __init__(self):
-        api_key = os.environ.get('POLONIEX_API_KEY')
-        secret = os.environ.get('POLONIEX_SECRET')
-        if api_key is None or secret is None:
-            logger.fatal('Failed to load the Poloniex API keys.')
-            exit()
-        self.poloniex = Poloniex(api_key, secret)
-
-    def get_tradable_balances(self):
-        print(self.poloniex.returnBalances())
-
-
-if __name__ == '__main__':
-    PoloniexWrapper().get_tradable_balances()

@@ -3,7 +3,8 @@ import json
 from enum import Enum
 
 
-class EventType:
+class EventType(Enum):
+
     REGISTER_STRATEGY = 'REGISTER_STRATEGY'
     NEW_CANDLESTICK = 'NEW_CANDLESTICK'
 

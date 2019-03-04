@@ -2,10 +2,12 @@ import logging
 import threading
 import socket
 import json
+import os
 
 from subscribable import Handler
 from strategy import Strategy
 from event import Event, EventType
+from exchange import ExchangeType
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -43,9 +45,8 @@ class Proxy(Handler):
                 logger.info('Message from: {}:{}: is not parsable to '
                             'json'.format(ip, port))
                 continue
-            if 'type' and 'payload' in msg:
-                self.handler(
-                    Event(msg['type'], msg['payload'], conn, addr))
+            if all(key in msg for key in ('type', 'payload')):
+                self.handler(Event(msg['type'], msg['payload'], conn, addr))
             else:
                 logger.info(
                     'Message from: {}:{}: does not contain type or '
@@ -57,20 +58,31 @@ class Proxy(Handler):
         ip, port = addr
         logger.info('Message type: {}: from: {}:{}'.format(
             msg['type'], ip, port))
-        if msg['type'] == EventType.REGISTER_STRATEGY:
-            if ('exchange' and 'currencyPair' and 'amount'
-                    not in msg['payload']):
-                logger.info('{} : from {}:{}: does not contain exchange, '
-                            'currency pair or amount'.format(
+        if msg['type'] == EventType.REGISTER_STRATEGY.name:
+            if any(key not in msg['payload'] for key in ('exchange',
+                                                         'currencyPair',
+                                                         'amount', 'interval')):
+                logger.info('{}: from {}:{}: message does not contain '
+                            'exchange, currency pair, interval or ' 'amount'.format(
                                 EventType.REGISTER_STRATEGY, ip, port))
                 return
+            if not ExchangeType.is_valid(msg['payload']['exchange']):
+                logger.info('{}: from {}:{}: is an invalid exchange'.format(
+                    msg['payload']['exchange'], ip, port))
+                return
+            # TODO: Check if the request contains a valid currency pair
+            # TODO: Check if the request contains a valid amount
+            # TODO: Check if the request contains a valid interval
+            # TODO: Forfeit the balance of the current strategy if it is
+            # overwritten
             if (conn, addr) in self.strategies:
                 logger.info(
                     'Strategy already exist from: {}:{}: overriding the '
                     'current strategy'.format(ip, port))
                 self.strategies[(conn, addr)].running = False
-            self.strategies[(conn, addr)] = Strategy(self, conn, addr)
-        elif msg['type'] == EventType.NEW_CANDLESTICK:
+            self.strategies[(conn, addr)] = Strategy(
+                self, msg['payload'], conn, addr)
+        elif msg['type'] == EventType.NEW_CANDLESTICK.name:
             pass
         else:
             logger.info('Invalid message type: {}: from: {}:{}'.format(

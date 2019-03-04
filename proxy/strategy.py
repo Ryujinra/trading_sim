@@ -6,7 +6,7 @@ from event import Event, EventType
 
 class Ticker(Subscribable):
 
-    def __init__(self, interval=1):
+    def __init__(self, interval):
         Subscribable.__init__(self)
         self.interval = interval
         self.running = True
@@ -20,7 +20,10 @@ class Ticker(Subscribable):
 
 class Strategy(Ticker):
 
-    def __init__(self, proxy, conn, addr, interval=1):
-        Ticker.__init__(self)
+    def __init__(self, proxy, msg, conn, addr):
+        Ticker.__init__(self, msg['interval'])
+        self.currency_pair = msg['currencyPair']
+        self.amount = msg['amount']
+        self.exchange = msg['exchange']
         self.add_subscriber(proxy)
-        self.tick(Event(EventType.NEW_CANDLESTICK, '', conn, addr))
+        self.tick(Event(EventType.NEW_CANDLESTICK.name, '', conn, addr))

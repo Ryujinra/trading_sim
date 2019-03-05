@@ -87,7 +87,3 @@ class Proxy(Handler):
         else:
             logger.info('Invalid message type: {}: from: {}:{}'.format(
                 msg['type'], ip, port))
-
-
-if __name__ == '__main__':
-    Proxy()

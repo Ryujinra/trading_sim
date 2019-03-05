@@ -7,6 +7,8 @@ import urllib
 import requests
 import logging
 
+from ..util.common import ExchangeAPI
+
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 formatter = logging.Formatter(
@@ -16,19 +18,7 @@ file_handler.setFormatter(formatter)
 logger.addHandler(file_handler)
 
 
-class Exchange(object):
-
-    def get_balance(self, currency):
-        pass
-
-    def is_currency_pair(self, currency_pair):
-        pass
-
-    def get_chart_data(self, currency_pair, period, start, end):
-        pass
-
-
-class PoloniexPublic(Exchange):
+class PoloniexPublicWrapper(ExchangeAPI):
 
     PUBLIC_URL = 'https://poloniex.com/public'
 
@@ -50,7 +40,7 @@ class PoloniexPublic(Exchange):
                                  currencyPair=currency_pair, period=period, start=start, end=end)
 
 
-class PoloniexSecret(PoloniexPublic):
+class PoloniexPrivateWrapper(PoloniexPublicWrapper):
 
     PRIVATE_URL = 'https://poloniex.com/tradingApi'
 
@@ -82,8 +72,3 @@ class PoloniexSecret(PoloniexPublic):
             return self.query_private('returnBalances')[currency]
         else:
             logger.fatal('Currency does not exist: {}'.format(currency))
-
-
-if __name__ == '__main__':
-    print(PoloniexSecret().get_chart_data(
-        'BTC_XMR', 14400, 1546300800, 1546646400))

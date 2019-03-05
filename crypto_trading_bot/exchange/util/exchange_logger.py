@@ -1,12 +1,10 @@
-from .common import ExchangeAPI
 from util.logger import logger
 
 
 def exchange_logger(api_req):
     def wrapper(*args, **kwargs):
-        if not isinstance(args[0], ExchangeAPI):
-            logger.fatal(
-                '{}: is not an instance of ExchangeAPI'.format(args[0]))
+        if not args:
+            logger.fatal('Failed to wrap ExchangeAPI')
         else:
             logger.info('Querying the {} API: {}'.format(
                 args[0].EXCHANGE_NAME, api_req.__name__))

@@ -5,20 +5,15 @@ import time
 import json
 import urllib
 import requests
-import logging
 
+from util.logger import logger
+from ..util.exchange_logger import exchange_logger
 from ..util.common import ExchangeAPI
-
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
-formatter = logging.Formatter(
-    '%(asctime)s:%(levelname)s:%(filename)s:%(funcName)s:%(message)s')
-file_handler = logging.StreamHandler()
-file_handler.setFormatter(formatter)
-logger.addHandler(file_handler)
 
 
 class PoloniexPublicWrapper(ExchangeAPI):
+
+    EXCHANGE_NAME = 'Poloniex'
 
     PUBLIC_URL = 'https://poloniex.com/public'
 
@@ -28,14 +23,12 @@ class PoloniexPublicWrapper(ExchangeAPI):
             self.PUBLIC_URL,
             params=kwargs).json()
 
+    @exchange_logger
     def is_currency_pair(self, currency_pair):
-        logger.info('Querying the Poloniex API: {}'.format(
-            self.is_currency_pair.__name__))
         return currency_pair in list(self.query_public('returnTicker'))
 
+    @exchange_logger
     def get_chart_data(self, currency_pair, period, start, end):
-        logger.info('Querying the Poloniex API: {}'.format(
-            self.get_chart_data.__name__))
         return self.query_public('returnChartData',
                                  currencyPair=currency_pair, period=period, start=start, end=end)
 
@@ -64,9 +57,8 @@ class PoloniexPrivateWrapper(PoloniexPublicWrapper):
         res = req.post(self.PRIVATE_URL, data=data)
         return res.json()
 
+    @exchange_logger
     def get_balance(self, currency):
-        logger.info('Querying the Poloniex API: {}'.format(
-            self.get_balance.__name__))
         balances = self.query_private('returnBalances')
         if currency in balances:
             return self.query_private('returnBalances')[currency]

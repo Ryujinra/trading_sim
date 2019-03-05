@@ -1,21 +1,12 @@
-import logging
 import threading
 import socket
 import json
 import os
 
-from subscribable import Handler
-from strategy import Strategy
-from event import Event, EventType
-from exchange import ExchangeType
-
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
-formatter = logging.Formatter(
-    '%(asctime)s:%(levelname)s:%(filename)s:%(funcName)s:%(message)s')
-file_handler = logging.StreamHandler()
-file_handler.setFormatter(formatter)
-logger.addHandler(file_handler)
+from .subscribable import Handler
+from .strategy import Strategy
+from .event import Event, EventType
+from util.logger import logger
 
 
 class Proxy(Handler):
@@ -65,10 +56,6 @@ class Proxy(Handler):
                 logger.info('{}: from {}:{}: message does not contain '
                             'exchange, currency pair, interval or ' 'amount'.format(
                                 EventType.REGISTER_STRATEGY, ip, port))
-                return
-            if not ExchangeType.is_valid(msg['payload']['exchange']):
-                logger.info('{}: from {}:{}: is an invalid exchange'.format(
-                    msg['payload']['exchange'], ip, port))
                 return
             # TODO: Check if the request contains a valid currency pair
             # TODO: Check if the request contains a valid amount

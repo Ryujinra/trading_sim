@@ -1,5 +1,7 @@
 class ExchangeAPI(object):
 
+    EXCHANGE_NAME = ''
+
     def get_balance(self, currency):
         pass
 

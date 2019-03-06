@@ -1,7 +1,7 @@
 import threading
 
-from subscribable import Subscribable
-from event import Event, EventType
+from .subscribable import Subscribable
+from .event import Event, EventType
 
 
 class Ticker(Subscribable):

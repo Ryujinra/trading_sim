@@ -5,20 +5,17 @@ import time
 import json
 import urllib
 import requests
-import logging
+import numpy as np
+import pandas as pd
 
-from ..util.common import ExchangeAPI
-
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
-formatter = logging.Formatter(
-    '%(asctime)s:%(levelname)s:%(filename)s:%(funcName)s:%(message)s')
-file_handler = logging.StreamHandler()
-file_handler.setFormatter(formatter)
-logger.addHandler(file_handler)
+from util.logger import logger
+from ..util.exchange_logger import exchange_logger
+from ..util.exchange_api import ExchangeAPI
 
 
 class PoloniexPublicWrapper(ExchangeAPI):
+
+    EXCHANGE_NAME = 'Poloniex'
 
     PUBLIC_URL = 'https://poloniex.com/public'
 
@@ -28,19 +25,23 @@ class PoloniexPublicWrapper(ExchangeAPI):
             self.PUBLIC_URL,
             params=kwargs).json()
 
-    def is_currency_pair(self, currency_pair):
-        logger.info('Querying the Poloniex API: {}'.format(
-            self.is_currency_pair.__name__))
-        return currency_pair in list(self.query_public('returnTicker'))
+    @exchange_logger
+    def get_currency_pairs(self):
+        return list(self.query_public('returnTicker'))
 
+    @exchange_logger
     def get_chart_data(self, currency_pair, period, start, end):
-        logger.info('Querying the Poloniex API: {}'.format(
-            self.get_chart_data.__name__))
-        return self.query_public('returnChartData',
-                                 currencyPair=currency_pair, period=period, start=start, end=end)
+        chart_data = self.query_public('returnChartData',
+                                       currencyPair=currency_pair, period=period,
+                                       start=start, end=end)
+        chart_data = pd.DataFrame(chart_data).drop(
+            columns=['volume', 'quoteVolume', 'weightedAverage'])
+        chart_data = chart_data.rename(columns={
+                                       'close': 'Close', 'open': 'Open', 'high': 'High', 'low': 'Low', 'date': 'Date'})
+        return chart_data
 
 
-class PoloniexPrivateWrapper(PoloniexPublicWrapper):
+class PoloniexWrapper(PoloniexPublicWrapper):
 
     PRIVATE_URL = 'https://poloniex.com/tradingApi'
 
@@ -64,11 +65,6 @@ class PoloniexPrivateWrapper(PoloniexPublicWrapper):
         res = req.post(self.PRIVATE_URL, data=data)
         return res.json()
 
-    def get_balance(self, currency):
-        logger.info('Querying the Poloniex API: {}'.format(
-            self.get_balance.__name__))
-        balances = self.query_private('returnBalances')
-        if currency in balances:
-            return self.query_private('returnBalances')[currency]
-        else:
-            logger.fatal('Currency does not exist: {}'.format(currency))
+    @exchange_logger
+    def get_tradable_pairs(self):
+        return self.query_private('returnTradableBalances')

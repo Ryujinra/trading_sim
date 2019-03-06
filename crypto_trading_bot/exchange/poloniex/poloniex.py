@@ -5,10 +5,12 @@ import time
 import json
 import urllib
 import requests
+import numpy as np
+import pandas as pd
 
 from util.logger import logger
 from ..util.exchange_logger import exchange_logger
-from ..util.common import ExchangeAPI
+from ..util.exchange_api import ExchangeAPI
 
 
 class PoloniexPublicWrapper(ExchangeAPI):
@@ -24,16 +26,22 @@ class PoloniexPublicWrapper(ExchangeAPI):
             params=kwargs).json()
 
     @exchange_logger
-    def is_currency_pair(self, currency_pair):
-        return currency_pair in list(self.query_public('returnTicker'))
+    def get_currency_pairs(self):
+        return list(self.query_public('returnTicker'))
 
     @exchange_logger
     def get_chart_data(self, currency_pair, period, start, end):
-        return self.query_public('returnChartData',
-                                 currencyPair=currency_pair, period=period, start=start, end=end)
+        chart_data = self.query_public('returnChartData',
+                                       currencyPair=currency_pair, period=period,
+                                       start=start, end=end)
+        chart_data = pd.DataFrame(chart_data).drop(
+            columns=['volume', 'quoteVolume', 'weightedAverage'])
+        chart_data = chart_data.rename(columns={
+                                       'close': 'Close', 'open': 'Open', 'high': 'High', 'low': 'Low', 'date': 'Date'})
+        return chart_data
 
 
-class PoloniexPrivateWrapper(PoloniexPublicWrapper):
+class PoloniexWrapper(PoloniexPublicWrapper):
 
     PRIVATE_URL = 'https://poloniex.com/tradingApi'
 
@@ -58,9 +66,5 @@ class PoloniexPrivateWrapper(PoloniexPublicWrapper):
         return res.json()
 
     @exchange_logger
-    def get_balance(self, currency):
-        balances = self.query_private('returnBalances')
-        if currency in balances:
-            return self.query_private('returnBalances')[currency]
-        else:
-            logger.fatal('Currency does not exist: {}'.format(currency))
+    def get_tradable_pairs(self):
+        return self.query_private('returnTradableBalances')

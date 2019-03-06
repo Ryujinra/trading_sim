@@ -2,10 +2,10 @@ class ExchangeAPI(object):
 
     EXCHANGE_NAME = ''
 
-    def get_balance(self, currency):
+    def get_tradable_pairs(self):
         pass
 
-    def is_currency_pair(self, currency_pair):
+    def get_currency_pairs(self):
         pass
 
     def get_chart_data(self, currency_pair, period, start, end):

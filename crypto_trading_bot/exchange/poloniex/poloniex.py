@@ -36,8 +36,6 @@ class PoloniexPublicWrapper(ExchangeAPI):
                                        start=start, end=end)
         chart_data = pd.DataFrame(chart_data).drop(
             columns=['volume', 'quoteVolume', 'weightedAverage'])
-        chart_data = chart_data.rename(columns={
-                                       'close': 'Close', 'open': 'Open', 'high': 'High', 'low': 'Low', 'date': 'Date'})
         return chart_data
 
 

@@ -3,6 +3,10 @@ from proxy.proxy import Proxy
 
 if __name__ == '__main__':
     exchange_db = ExchangeDatabase()
+    # exchange_db.register_chart_data(
+    #     'Poloniex', 'BTC_XMR', 14400, 1517500800, 1517500800 + 200 * 14400)
+    # exchange_db.register_chart_data(
+    #     'Poloniex', 'BTC_XMR', 14400, 1546372800 + 800 * 14400, 1546430400)
     exchange_db.register_chart_data(
-        'Poloniex', 'BTC_XMR', 14400, 1546300800, 1546646400)
+        'Poloniex', 'BTC_XMR', 14400, 1517500800, 1546430400)
     exchange_db.is_valid_currency_pair('Poloniex', 'BTC_XMR')

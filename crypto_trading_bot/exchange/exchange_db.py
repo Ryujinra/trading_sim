@@ -1,6 +1,7 @@
 import os
 import mysql.connector
-import sqlalchemy
+import time
+import pandas as pd
 
 from exchange.poloniex.poloniex import PoloniexWrapper
 
@@ -31,6 +32,17 @@ table['chart_data'] = (
     )
     """
 )
+table['temp_chart_data'] = (
+    """
+    CREATE TEMPORARY TABLE `temp_chart_data` (
+        `exchange` VARCHAR(15) NOT NULL,
+        `pair` VARCHAR(15) NOT NULL,
+        `period` INTEGER UNSIGNED NOT NULL,
+        `date` BIGINT UNSIGNED NOT NULL,
+        PRIMARY KEY (`exchange`, `pair`, `period`, `date`)
+    )
+    """
+)
 
 query = {}
 query['insert_currency_pair'] = (
@@ -48,6 +60,49 @@ query['is_valid_currency_pair'] = (
     SELECT EXISTS (SELECT * from `currency_pair` WHERE `exchange`=%s AND `pair`=%s)
     """
 )
+query['insert_temp_chart_data'] = (
+    """
+    INSERT IGNORE INTO `temp_chart_data` (`exchange`, `pair`, `period`, `date`) VALUES (%s, %s, %s, %s);
+    """
+)
+query['compare_chart_data'] = (
+    """
+    SELECT `date` FROM `temp_chart_data` WHERE (`exchange`, `pair`, `period`, `date`) NOT IN (SELECT `exchange`, `pair`, `period`, `date` FROM `chart_data`)
+    """
+)
+query['drop_temp_chart_data_table'] = (
+    "DROP TEMPORARY TABLE temp_chart_data"
+)
+
+
+class DateRange(object):
+
+    def __init__(self, period):
+        self.reset()
+        self.period = period
+        self.date_ranges = []
+
+    def reset(self, start=None):
+        self.start = start
+        self.end = None
+        self.counter = 1
+
+    def next(self, date):
+        if self.start is None:
+            self.start = date
+        elif self.start + (self.period * self.counter) == date:
+            self.end = date
+            self.counter += 1
+        else:
+            if self.end is None:
+                self.date_ranges.append((self.start, self.start))
+            else:
+                self.date_ranges.append((self.start, self.end))
+            self.reset(date)
+
+    def get_date_ranges(self):
+        self.date_ranges.append(((self.start, self.end)))
+        return self.date_ranges
 
 
 class ExchangeDatabase(object):
@@ -61,9 +116,6 @@ class ExchangeDatabase(object):
             host=mysql_host, user=mysql_user, password=mysql_pass, db=mysql_db)
         self.cursor = self.cnx.cursor()
         self.exchanges = {PoloniexWrapper.EXCHANGE_NAME: PoloniexWrapper()}
-        self.cnx.commit()
-        self.cursor.execute('DROP TABLE chart_data')
-        self.cnx.commit()
         # Instantiate the currency pair table.
         self.cursor.execute(table['currency_pair'])
         self.cnx.commit()
@@ -81,17 +133,44 @@ class ExchangeDatabase(object):
             self.cnx.commit()
 
     def register_chart_data(self, exchange, currency_pair, period, start, end):
+        start_time = time.time()
         exchange = self.exchanges[exchange]
-        data = exchange.get_chart_data(currency_pair, period, start, end)
+        data = pd.DataFrame()
+        data['date'] = [date for date in range(start, end + period, period)]
         data['exchange'] = [exchange.EXCHANGE_NAME] * len(data)
         data['period'] = [period] * len(data)
         data['pair'] = [currency_pair] * len(data)
-        data['date'] = [date for date in range(start, end + period, period)]
-        data = data.reindex(
-            columns=['exchange', 'pair', 'period', 'date', 'high', 'low', 'open', 'close'])
-        data = [tuple(data) for data in data.values]
-        self.cursor.executemany(query['insert_chart_data'], data)
+        data = data.reindex(columns=['exchange', 'pair', 'period', 'date'])
+        self.cursor.execute(table['temp_chart_data'])
         self.cnx.commit()
+        self.cursor.executemany(query['insert_temp_chart_data'], [
+                                tuple(data) for data in data.values])
+        self.cnx.commit()
+        date_range = DateRange(period)
+        self.cursor.execute(query['compare_chart_data'])
+        for date in self.cursor:
+            date_range.next(date[0])
+        self.cursor.execute(query['drop_temp_chart_data_table'])
+        self.cnx.commit()
+        for start, end in date_range.get_date_ranges():
+            if start is None and end is None:
+                 # The data is already in the table.
+                return
+            elif end is None:
+                end = start
+            data = exchange.get_chart_data(currency_pair, period, start, end)
+            data['exchange'] = [exchange.EXCHANGE_NAME] * len(data)
+            data['period'] = [period] * len(data)
+            data['pair'] = [currency_pair] * len(data)
+            data['date'] = [date for date in range(
+                start, end + period, period)]
+            data = data.reindex(
+                columns=['exchange', 'pair', 'period', 'date', 'high', 'low', 'open', 'close'])
+            data = [tuple(data) for data in data.values]
+            self.cursor.executemany(query['insert_chart_data'], data)
+            self.cnx.commit()
+        end_time = time.time()
+        print(end_time - start_time)
 
     def is_valid_currency_pair(self, exchange, pair):
         self.cursor.execute(query['is_valid_currency_pair'], (exchange, pair))

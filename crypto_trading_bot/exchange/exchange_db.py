@@ -1,6 +1,5 @@
 import os
 import mysql.connector
-import time
 import pandas as pd
 
 from exchange.poloniex.poloniex import PoloniexWrapper
@@ -71,7 +70,10 @@ query['compare_chart_data'] = (
     """
 )
 query['drop_temp_chart_data_table'] = (
-    "DROP TEMPORARY TABLE temp_chart_data"
+    "DROP TEMPORARY TABLE `temp_chart_data`"
+)
+query['get_chart_data'] = (
+    "SELECT `high`, `low`, `open`, `close` FROM `chart_data` WHERE `exchange`=%s AND `pair`=%s AND `period`=%s AND `date`=%s"
 )
 
 
@@ -133,7 +135,6 @@ class ExchangeDatabase(object):
             self.cnx.commit()
 
     def register_chart_data(self, exchange, currency_pair, period, start, end):
-        start_time = time.time()
         exchange = self.exchanges[exchange]
         data = pd.DataFrame()
         data['date'] = [date for date in range(start, end + period, period)]
@@ -154,8 +155,7 @@ class ExchangeDatabase(object):
         self.cnx.commit()
         for start, end in date_range.get_date_ranges():
             if start is None and end is None:
-                 # The data is already in the table.
-                return
+                break
             elif end is None:
                 end = start
             data = exchange.get_chart_data(currency_pair, period, start, end)
@@ -169,13 +169,16 @@ class ExchangeDatabase(object):
             data = [tuple(data) for data in data.values]
             self.cursor.executemany(query['insert_chart_data'], data)
             self.cnx.commit()
-        end_time = time.time()
-        print(end_time - start_time)
 
     def is_valid_currency_pair(self, exchange, pair):
         self.cursor.execute(query['is_valid_currency_pair'], (exchange, pair))
         for data in self.cursor:
             return data[0] != False
+
+    def get_chart_data(self, exchange, pair, period, date):
+        self.cursor.execute(query['get_chart_data'], (exchange, pair, period, date))
+        for data in self.cursor:
+            return data
 
     def is_valid_exchange(self, exchange):
         return exchange in self.exchanges

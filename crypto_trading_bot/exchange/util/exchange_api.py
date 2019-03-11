@@ -1,6 +1,6 @@
 class ExchangeAPI(object):
 
-    EXCHANGE_NAME = ''
+    EXCHANGE_NAME = ""
 
     def get_tradable_pairs(self):
         pass

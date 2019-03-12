@@ -12,6 +12,11 @@ class Strategy(object):
         ExchangeDatabase().register_chart_data(exchange, pair, period, start, end)
 
     def tick(self):
+        if self.idx > len(self.dates) - 1:
+            # TODO: Remove strategy from proxy strategies
+            self.conn.socket.send(str({"eventType": "END_OF_CHART_DATA"}).encode())
+            return
+        print("dates: {}, idx: {}".format(len(self.dates), self.idx))
         data = ExchangeDatabase().get_chart_data(
             self.exchange, self.pair, self.period, self.dates[self.idx]
         )
@@ -20,19 +25,23 @@ class Strategy(object):
             self.conn.socket.send(
                 str(
                     {
-                        "eventType": "NEW_CANDLESTICK",
+                        "eventType": "NEW_CHART_DATA",
                         "payload": {
-                            "high": high,
-                            "low": low,
-                            "open": open,
-                            "close": close,
-                            "weighted_average": weighted_average,
+                            "candlestick": {
+                                "high": high,
+                                "low": low,
+                                "open": open,
+                                "close": close,
+                                "weighted_average": weighted_average,
+                            }
                         },
                     }
                 ).encode()
             )
         else:
             self.conn.socket.send(
-                {"eventType": "ERROR_CHART_DATA_DOES_NOT_EXIST", "payload": {}}
+                str(
+                    {"eventType": "ERROR_CHART_DATA_DOES_NOT_EXIST", "payload": {}}
+                ).encode()
             )
         self.idx += 1

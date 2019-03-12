@@ -28,7 +28,7 @@ class Connection(object):
 class Proxy(object):
 
     HOST = "localhost"
-    PORT = 5001
+    PORT = 5000
     BUFFER_SIZE = 1024
 
     def __init__(self):

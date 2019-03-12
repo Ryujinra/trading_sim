@@ -1,23 +1,35 @@
 from enum import Enum
+import json
 
 from .action_register_test_strategy import ActionRegisterTestStrategy
+from .action_limit_order import ActionLimitOrder
+from .action_tick import ActionTick
 from util.logger import logger
 
 
 class EventType(Enum):
 
     REGISTER_TEST_STRATEGY = "REGISTER_TEST_STRATEGY"
+    LIMIT_ORDER = "LIMIT_ORDER"
+    TICK = "TICK"
 
 
 class ActionFactory(object):
     @staticmethod
     def instantiate(addr, msg):
-        if any(key not in msg for key in ("type", "payload")):
-            logger.debug("Event does not contain a type or payload")
+        try:
+            msg = json.loads(msg)
+        except ValueError:
+            logger.debug("Message {}: is not parsable to json".format(addr))
             return None
-        logger.info("New message: {}: {}".format(addr, msg["type"]))
+        if any(key not in msg for key in ("eventType", "payload")):
+            logger.debug("Event does not contain an event type or payload")
+            return None
+        logger.info("New message: {}: {}".format(msg["eventType"], addr))
         return {
             EventType.REGISTER_TEST_STRATEGY.value: lambda: ActionRegisterTestStrategy(
                 msg["payload"]
-            )
-        }[msg["type"]]().type
+            ),
+            EventType.LIMIT_ORDER.value: lambda: ActionLimitOrder(msg["payload"]),
+            EventType.TICK.value: lambda: ActionTick(),
+        }[msg["eventType"]]().action_type

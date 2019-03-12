@@ -28,6 +28,7 @@ table[
         `low` DOUBLE UNSIGNED NOT NULL,
         `open` DOUBLE UNSIGNED NOT NULL,
         `close` DOUBLE UNSIGNED NOT NULL,
+        `weightedAverage` DOUBLE UNSIGNED NOT NULL,
         PRIMARY KEY (`exchange`, `pair`, `period`, `date`),
         FOREIGN key (`exchange`, `pair`) REFERENCES `currency_pair` (`exchange`, `pair`) ON DELETE CASCADE
     )
@@ -53,7 +54,7 @@ query[
 query[
     "insert_chart_data"
 ] = """
-    INSERT IGNORE INTO `chart_data` (`exchange`, `pair`, `period`, `date`, `high`, `low`, `open`, `close`) VALUES (%s, %s, %s, %s, %s, %s, %s, %s);
+    INSERT IGNORE INTO `chart_data` (`exchange`, `pair`, `period`, `date`, `high`, `low`, `open`, `close`, weightedAverage) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s);
     """
 query[
     "is_valid_currency_pair"
@@ -73,7 +74,7 @@ query[
 query["drop_temp_chart_data_table"] = "DROP TEMPORARY TABLE `temp_chart_data`"
 query[
     "get_chart_data"
-] = "SELECT `high`, `low`, `open`, `close` FROM `chart_data` WHERE `exchange`=%s AND `pair`=%s AND `period`=%s AND `date`=%s"
+] = "SELECT `high`, `low`, `open`, `close`, `weightedAverage` FROM `chart_data` WHERE `exchange`=%s AND `pair`=%s AND `period`=%s AND `date`=%s"
 
 
 class Window(object):
@@ -179,6 +180,7 @@ class ExchangeDatabase(object):
                         "low",
                         "open",
                         "close",
+                        "weightedAverage",
                     ]
                 )
                 data = [tuple(data) for data in data.values]

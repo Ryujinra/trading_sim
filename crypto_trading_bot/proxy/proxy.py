@@ -1,6 +1,5 @@
 import threading
 import socket
-import json
 import os
 from concurrent.futures import ThreadPoolExecutor
 
@@ -9,6 +8,8 @@ from util.logger import logger
 from exchange.exchange_db import ExchangeDatabase
 from .action.action_factory import ActionFactory
 from .action.action_register_test_strategy import ActionRegisterTestStrategy
+from .action.action_limit_order import ActionLimitOrder
+from .action.action_tick import ActionTick
 
 
 class Connection(object):
@@ -32,7 +33,7 @@ class Proxy(object):
 
     def __init__(self):
         self.strategies = {}
-        self.executor = ThreadPoolExecutor()
+        self.thread_pool = ThreadPoolExecutor()
         proxy = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         proxy.bind((self.HOST, self.PORT))
         logger.info("Listening...")
@@ -41,30 +42,26 @@ class Proxy(object):
             _socket, addr = proxy.accept()
             conn = Connection(_socket, addr)
             logger.info("New connection {}".format(conn))
-            threading.Thread(target=self.listener, args=(conn,)).start()
+            self.thread_pool.submit(lambda: self.listener(conn))
 
     def listener(self, conn):
         while True:
-            msg = conn.socket.recv(self.BUFFER_SIZE)
-            try:
-                msg = json.loads(msg)
-            except ValueError:
-                logger.debug("Message {}: is not parsable to json".format(conn))
-                continue
-            self.executor.submit(
-                lambda: self.handler(ActionFactory.instantiate(str(conn), msg), conn)
+            self.handler(
+                ActionFactory.instantiate(
+                    str(conn), conn.socket.recv(self.BUFFER_SIZE)
+                ),
+                conn,
             )
 
     def handler(self, action, conn):
+        key = (conn.socket, conn.addr)
         if isinstance(action, ActionRegisterTestStrategy):
-            key = (conn.socket, conn.addr)
             if key in self.strategies:
                 logger.debug(
                     "Strategy already exist {}: overriding the current strategy".format(
                         conn
                     )
                 )
-                self.strategies[key].running = False
             self.strategies[key] = Strategy(
                 conn,
                 action.exchange,
@@ -73,5 +70,15 @@ class Proxy(object):
                 action.start,
                 action.end,
             )
+        elif isinstance(action, ActionLimitOrder):
+            if key not in self.strategies:
+                logger.debug("Strategy does not exist {}".format(conn))
+                return
+            # TODO: Add handler.
+        elif isinstance(action, ActionTick):
+            if key not in self.strategies:
+                logger.debug("Strategy does not exist {}".format(conn))
+                return
+            self.strategies[key].tick()
         else:
             logger.debug("Invalid message {}".format(conn))

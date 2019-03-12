@@ -49,4 +49,4 @@ class ActionRegisterTestStrategy(Action):
             return
         else:
             self.end = self.payload["end"]
-        self.type = self
+        self.action_type = self

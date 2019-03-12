@@ -15,7 +15,7 @@ from ..util.exchange_api import ExchangeAPI
 
 class PoloniexPublicWrapper(ExchangeAPI):
 
-    EXCHANGE_NAME = "Poloniex"
+    EXCHANGE_NAME = "POLONIEX"
 
     PUBLIC_URL = "https://poloniex.com/public"
 
@@ -36,10 +36,7 @@ class PoloniexPublicWrapper(ExchangeAPI):
             start=start,
             end=end,
         )
-        chart_data = pd.DataFrame(chart_data).drop(
-            columns=["volume", "quoteVolume", "weightedAverage"]
-        )
-        return chart_data
+        return pd.DataFrame(chart_data).drop(columns=["volume", "quoteVolume"])
 
 
 class PoloniexWrapper(PoloniexPublicWrapper):

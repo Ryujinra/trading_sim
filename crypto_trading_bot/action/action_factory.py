@@ -4,6 +4,7 @@ import json
 from .action_register_test_strategy import ActionRegisterTestStrategy
 from .action_limit_order import ActionLimitOrder
 from .action_tick import ActionTick
+from .action_end_of_chart_data import ActionEndOfChartData
 from util.logger import logger
 
 
@@ -12,6 +13,7 @@ class EventType(Enum):
     REGISTER_TEST_STRATEGY = "REGISTER_TEST_STRATEGY"
     LIMIT_ORDER = "LIMIT_ORDER"
     TICK = "TICK"
+    END_OF_CHART_DATA = "END_OF_CHART_DATA"
 
 
 class ActionFactory(object):
@@ -32,4 +34,5 @@ class ActionFactory(object):
             ),
             EventType.LIMIT_ORDER.value: lambda: ActionLimitOrder(msg["payload"]),
             EventType.TICK.value: lambda: ActionTick(),
+            EventType.END_OF_CHART_DATA.value: lambda: ActionEndOfChartData(),
         }[msg["eventType"]]().action_type

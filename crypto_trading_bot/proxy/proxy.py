@@ -30,31 +30,31 @@ class Connection(object):
 class Proxy(Listener):
 
     HOST = "localhost"
-    PORT = 5000
+    PORT = 5001
     BUFFER_SIZE = 1024
 
     def __init__(self):
         Listener.__init__(self)
         self.strategies = {}
-        self.thread_pool = ThreadPoolExecutor()
+        self.thread_pool = ThreadPoolExecutor(max_workers=5)
         proxy = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         proxy.bind((self.HOST, self.PORT))
         logger.info("Listening...")
-        while True:
+        while 1:
             proxy.listen()
             _socket, addr = proxy.accept()
             conn = Connection(_socket, addr)
-            logger.info("New connection {}".format(conn))
+            logger.info("{}: new connection".format(conn))
             self.thread_pool.submit(lambda: self.listener(conn))
 
     def listener(self, conn):
-        while True:
-            self.handler(
-                ActionFactory.instantiate(
-                    str(conn), conn.socket.recv(self.BUFFER_SIZE)
-                ),
-                conn,
-            )
+        while 1:
+            data = conn.socket.recv(self.BUFFER_SIZE)
+            if not data:
+                break
+            self.handler(ActionFactory.instantiate(str(conn), data), conn)
+        conn.socket.close()
+        logger.info("{}: disconnected".format(conn))
 
     def handler(self, action, conn):
         key = (conn.socket, conn.addr)
@@ -70,7 +70,7 @@ class Proxy(Listener):
             if key not in self.strategies:
                 logger.debug("Strategy does not exist {}".format(conn))
                 return
-            self.strategies[key].new_order()
+            self.strategies[key].new_limit_order(action)
         elif isinstance(action, ActionTick):
             if key not in self.strategies:
                 logger.debug("Strategy does not exist {}".format(conn))

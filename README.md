@@ -1,1 +1,1 @@
-# crypto-trading-bot
+# trading_sim

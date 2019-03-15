@@ -1,10 +1,17 @@
 import math
 import json
 
+from util.util import Util
 from util.logger import logger
-from exchange.exchange_db import ExchangeDatabase
-from .subscribable import Subscribable
+from exchange.exchange_database import ExchangeDatabase
 from action.action_factory import ActionFactory
+from event.event_new_chart_data import EventNewChartData
+from event.event_end_of_chart_data import EventEndOfChartData
+from action.action_factory import ActionFactory
+from action.action_limit_order import ActionLimitOrder
+from action.action_tick import ActionTick
+from action.action_end_of_chart_data import ActionEndOfChartData
+from event.event_ok import EventOk
 
 
 class PercentChange(object):
@@ -19,7 +26,7 @@ class PercentChange(object):
         if self.is_complete():
             percent_change = ((self.v2 - self.v1) * 100) / math.fabs(self.v1)
             logger.debug(
-                "v1: {0:.5f}, v2: {1:.5f}, Δ%: {2:.5f}".format(
+                "v1: {:.5f}, v2: {:.5f}, Δ%: {:.5f}".format(
                     self.v1, self.v2, percent_change
                 )
             )
@@ -54,18 +61,17 @@ class PercentChangeAccumulator(object):
         net = 0
         for percent_change in self.percent_changes:
             net += percent_change.compute_percent_change()
-        logger.debug("Net Δ%: {0:.5f}".format(net))
+        logger.debug("Net Δ%: {:.5f}".format(net))
         return net
 
 
-class Strategy(Subscribable):
-    def __init__(self, proxy, conn, action):
-        logger.debug("Instantiating a new strategy")
-        Subscribable.__init__(self)
-        # Register the proxy as a listener to this strategy.
-        self.add_listener(proxy)
+class Strategy(object):
+    def __init__(self, conn, addr, action):
+        # Whether this strategy is actively listening and handling requests.
+        self.is_running = True
         # Maintain a socket connection with the client.
         self.conn = conn
+        self.addr = addr
         # The percent_change_accumulator field stores the history of limit
         # orders made to this strategy.
         self.percent_change_accumulator = PercentChangeAccumulator()
@@ -93,6 +99,9 @@ class Strategy(Subscribable):
         # The curr_chart_data variable stores the state of the current chart
         # data referenced by the chart data iterator.
         self.curr_chart_data = None
+        self.conn.send(EventOk.instantiate())
+        # Start listening for requests.
+        self.listener()
 
     def new_limit_order(self, action):
         # Register the limit order if and only if this strategy is not locked.
@@ -102,14 +111,14 @@ class Strategy(Subscribable):
             weighted_average = self.curr_chart_data[4]
             if action.is_buy_order:
                 logger.debug(
-                    "Registering a new buy order at price: {0:.5f}".format(
+                    "Registering a new buy order at price: {:.5f}".format(
                         weighted_average
                     )
                 )
                 self.percent_change_accumulator.buy(weighted_average)
             else:
                 logger.debug(
-                    "Registering a new sell order at price: {0:.5f}".format(
+                    "Registering a new sell order at price: {:.5f}".format(
                         weighted_average
                     )
                 )
@@ -119,6 +128,7 @@ class Strategy(Subscribable):
             self.is_locked = True
         else:
             logger.debug("Strategy is blocked from making a new limit order")
+        self.conn.send(EventOk.instantiate())
 
     def tick(self):
         try:
@@ -132,34 +142,28 @@ class Strategy(Subscribable):
             percent_change = (
                 self.percent_change_accumulator.compute_net_percent_change()
             )
-            msg = json.dumps(
-                {
-                    "eventType": "END_OF_CHART_DATA",
-                    "payload": {"percentChange": percent_change},
-                }
-            )
-            self.conn.socket.send(msg.encode())
-            self.notify_listeners(
-                ActionFactory.instantiate(str(self.conn), msg), self.conn
-            )
+            self.conn.send(EventEndOfChartData.instantiate(percent_change))
+            self.is_running = False
         else:
             logger.debug("Sending the chart data to the client")
             # If there still exist chart data, then unlock this strategy to
             # receive a limit order and send the chart data to the client.
             self.is_locked = False
-            self.conn.socket.send(
-                json.dumps(
-                    {
-                        "eventType": "NEW_CHART_DATA",
-                        "payload": {
-                            "candlestick": {
-                                "high": self.curr_chart_data[0],
-                                "low": self.curr_chart_data[1],
-                                "open": self.curr_chart_data[2],
-                                "close": self.curr_chart_data[3],
-                                "weighted_average": self.curr_chart_data[4],
-                            }
-                        },
-                    }
-                ).encode()
+            high, low, open, close, weightedAverage = self.curr_chart_data
+            self.conn.send(
+                EventNewChartData.instantiate(high, low, open, close, weightedAverage)
             )
+
+    def listener(self):
+        while self.is_running:
+            logger.info("Listening...")
+            data = self.conn.recv(Util.BUFFER_SIZE)
+            self.handler(ActionFactory.instantiate(data))
+
+    def handler(self, action):
+        if isinstance(action, ActionLimitOrder):
+            self.new_limit_order(action)
+        elif isinstance(action, ActionTick):
+            self.tick()
+        else:
+            logger.debug("Invalid message")

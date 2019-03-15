@@ -1,87 +1,43 @@
 import threading
 import socket
 import os
+import time
 from concurrent.futures import ThreadPoolExecutor
 
 from .strategy import Strategy
 from util.logger import logger
-from exchange.exchange_db import ExchangeDatabase
+from util.util import Util
+from exchange.exchange_database import ExchangeDatabase
 from action.action_factory import ActionFactory
 from action.action_register_test_strategy import ActionRegisterTestStrategy
-from action.action_limit_order import ActionLimitOrder
-from action.action_tick import ActionTick
-from action.action_end_of_chart_data import ActionEndOfChartData
-from .subscribable import Listener
+from event.event_error import EventError
 
 
-class Connection(object):
-    def __init__(self, socket, addr):
-        self.socket = socket
-        self.addr = addr
-
-    def __str__(self):
-        ip, port = self.addr
-        return "from: {}:{}".format(ip, port)
-
-    def __repr__(self):
-        return self.__str__()
-
-
-class Proxy(Listener):
-
-    HOST = "localhost"
-    PORT = 5001
-    BUFFER_SIZE = 1024
-
+class Proxy(object):
     def __init__(self):
-        Listener.__init__(self)
-        self.strategies = {}
-        self.thread_pool = ThreadPoolExecutor(max_workers=5)
-        proxy = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        proxy.bind((self.HOST, self.PORT))
-        logger.info("Listening...")
-        while 1:
-            proxy.listen()
-            _socket, addr = proxy.accept()
-            conn = Connection(_socket, addr)
-            logger.info("{}: new connection".format(conn))
-            self.thread_pool.submit(lambda: self.listener(conn))
+        self.thread_pool = ThreadPoolExecutor(max_workers=Util.MAX_STRATEGIES)
+        self.proxy = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.proxy.bind((Util.PROXY_HOST, Util.PROXY_PORT))
+        self.listener()
 
-    def listener(self, conn):
+    def listener(self):
         while 1:
-            data = conn.socket.recv(self.BUFFER_SIZE)
-            if not data:
-                break
-            self.handler(ActionFactory.instantiate(str(conn), data), conn)
-        conn.socket.close()
-        logger.info("{}: disconnected".format(conn))
+            logger.info("Listening...")
+            self.proxy.listen(Util.MAX_STRATEGIES)
+            conn, addr = self.proxy.accept()
+            self.thread_pool.submit(lambda: self.handler(conn, addr))
 
-    def handler(self, action, conn):
-        key = (conn.socket, conn.addr)
+    def handler(self, conn, addr):
+        ip, port = addr
+        logger.info("New connection: {}:{}".format(ip, port))
+        data = conn.recv(Util.BUFFER_SIZE)
+        action = ActionFactory.instantiate(data)
         if isinstance(action, ActionRegisterTestStrategy):
-            if key in self.strategies:
-                logger.debug(
-                    "Strategy already exist {}: overriding the current strategy".format(
-                        conn
-                    )
-                )
-            self.strategies[key] = Strategy(self, conn, action)
-        elif isinstance(action, ActionLimitOrder):
-            if key not in self.strategies:
-                logger.debug("Strategy does not exist {}".format(conn))
-                return
-            self.strategies[key].new_limit_order(action)
-        elif isinstance(action, ActionTick):
-            if key not in self.strategies:
-                logger.debug("Strategy does not exist {}".format(conn))
-                return
-            self.strategies[key].tick()
-        elif isinstance(action, ActionEndOfChartData):
-            if key not in self.strategies:
-                logger.debug("Strategy does not exist {}".format(conn))
-                return
-            logger.debug("Removing strategy {}".format(conn))
-            self.strategies.pop(key)
-            conn.socket.close()
+            logger.info("Instantiating a new test strategy")
+            Strategy(conn, addr, action)
         else:
-            logger.debug("Invalid message {}".format(conn))
+            logger.info("Invalid instantiation of a test strategy: closing the socket")
+            conn.send(
+                EventError.instantiate("Invalid instantiation of a test strategy")
+            )
+        conn.close()

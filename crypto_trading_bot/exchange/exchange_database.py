@@ -3,7 +3,7 @@ import mysql.connector
 import pandas as pd
 from threading import Lock
 
-from exchange.poloniex.poloniex import PoloniexWrapper
+from exchange.poloniex import PoloniexWrapper
 
 
 table = {}

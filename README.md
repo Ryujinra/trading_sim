@@ -23,5 +23,3 @@ To begin the analysis of various trading strategies, run:
 ```
 python3 run.py -s
 ```
-
-To test your trading strategies: extend the ProxyAPI class and override the strategy function, as demonstrated by Strategy1 and Strategy2 in /trading_sim/run.py.

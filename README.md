@@ -1,8 +1,6 @@
 # trading_sim
 
-Backtest multiple trading strategies concurrently using historical data. 
-
-This TCP socket application runs a proxy server which exposes a clean wrapper to various exchanges. Each trading strategy communicates synchronously with the proxy server to retrieve historical chart data. The trading strategies analyze the historical chart data and then reply by placing a limit order and requesting for the next iteration of chart data. The proxy server maintains the performance metrics of each trading strategy,  and upon termination of the trading strategy, send's the performance metrics to the client. The client then sorts the trading strategies based on their respective performance grade, allowing the user to analyze multiple trading strategies concurrently.
+This TCP socket application can backtest multiple trading strategies concurrently. It runs a proxy server which exposes a clean wrapper to various financial exchanges. The trading strategies communicate with the proxy server which maintains their respective performance metrics. Upon termination of all trading strategies, the proxy server notifies the client of each strategies performance grade, allowing the client to test and analyze multiple trading strategies concurrently.
 
 ## Usage
 

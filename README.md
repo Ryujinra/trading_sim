@@ -1,6 +1,6 @@
 # trading_sim
 
-This TCP socket application can backtest multiple trading strategies concurrently. It runs a proxy server which exposes a clean wrapper to various financial exchanges. The proxy server maintains each trading strategy's performance grade, and upon termination of all trading strategies, ranks the trading strategy's based off their respective performance, allowing the client to test and analyze multiple trading strategies concurrently.
+This TCP socket application can backtest multiple trading strategies concurrently. It runs a proxy server which exposes a clean wrapper to various financial exchanges. The proxy server audits each trading strategy and ranks them on their computed performance grade, allowing the client to efficiently test and analyze multiple trading strategies simultaneously.
 
 ## Usage
 

@@ -12,5 +12,9 @@ cd trading_sim
 pip3 install -r requirements.txt
 cd trading_sim
 python3 run.py -p
+```
+
+Then, in a new terminal window, run:
+```
 python3 run.py -s
 ```

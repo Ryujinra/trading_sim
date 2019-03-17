@@ -21,8 +21,8 @@ def await_ok(f):
         f(*args, **kwargs)
         data = args[0].socket.recv(Util.BUFFER_SIZE)
         action = ActionFactory.instantiate(data)
-        if not isinstance(action, ActionOk):
-            logger.fatal("Expected an ok message! got: {}".format(action))
+        if isinstance(action, ActionError):
+            logger.fatal(action.error_type)
             exit()
 
     return wrapper
@@ -58,16 +58,18 @@ class ProxyAPI(threading.Thread):
         while self.is_running:
             self.tick()
             data = self.socket.recv(Util.BUFFER_SIZE)
-            self.handler(ActionFactory.instantiate(data))
+            self.reducer(ActionFactory.instantiate(data))
 
-    def handler(self, action):
+    def reducer(self, action):
         if isinstance(action, ActionNewChartData):
-            self.strategy(
-                action.high,
-                action.low,
-                action.open,
-                action.close,
-                action.weighted_average,
+            self.handler(
+                (
+                    action.high,
+                    action.low,
+                    action.open,
+                    action.close,
+                    action.weighted_average,
+                )
             )
         elif isinstance(action, ActionError):
             logger.fatal(action.error_type)
@@ -75,8 +77,12 @@ class ProxyAPI(threading.Thread):
         elif isinstance(action, ActionEndOfChartData):
             self.percent_change = action.percent_change
             self.is_running = False
+            self.analyze()
         elif isinstance(acton, ActionOk):
             pass
 
-    def strategy(self, high, low, open, close, weighted_average):
+    def handler(self, data):
+        pass
+
+    def analyze(self):
         pass

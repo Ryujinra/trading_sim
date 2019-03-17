@@ -1,7 +1,6 @@
-import os
-import mysql.connector
 import pandas as pd
 from threading import Lock
+import sqlite3
 
 from exchange.poloniex import PoloniexWrapper
 
@@ -10,38 +9,38 @@ table = {}
 table[
     "currency_pair"
 ] = """
-    CREATE TABLE IF NOT EXISTS `currency_pair` (
-        `exchange` VARCHAR(15) NOT NULL,
-        `pair` VARCHAR(15) NOT NULL,
-        PRIMARY KEY (`exchange`, `pair`)
+    CREATE TABLE IF NOT EXISTS currency_pair (
+        exchange VARCHAR(15) NOT NULL,
+        pair VARCHAR(15) NOT NULL,
+        PRIMARY KEY (exchange, pair)
     )
     """
 table[
     "chart_data"
 ] = """
-    CREATE TABLE IF NOT EXISTS `chart_data` (
-        `exchange` VARCHAR(15) NOT NULL,
-        `pair` VARCHAR(15) NOT NULL,
-        `period` INTEGER UNSIGNED NOT NULL,
-        `date` BIGINT UNSIGNED NOT NULL,
-        `high` DOUBLE UNSIGNED NOT NULL,
-        `low` DOUBLE UNSIGNED NOT NULL,
-        `open` DOUBLE UNSIGNED NOT NULL,
-        `close` DOUBLE UNSIGNED NOT NULL,
-        `weightedAverage` DOUBLE UNSIGNED NOT NULL,
-        PRIMARY KEY (`exchange`, `pair`, `period`, `date`),
-        FOREIGN key (`exchange`, `pair`) REFERENCES `currency_pair` (`exchange`, `pair`) ON DELETE CASCADE
+    CREATE TABLE IF NOT EXISTS chart_data (
+        exchange VARCHAR(15) NOT NULL,
+        pair VARCHAR(15) NOT NULL,
+        period INTEGER UNSIGNED NOT NULL,
+        date BIGINT UNSIGNED NOT NULL,
+        high DOUBLE UNSIGNED NOT NULL,
+        low DOUBLE UNSIGNED NOT NULL,
+        open DOUBLE UNSIGNED NOT NULL,
+        close DOUBLE UNSIGNED NOT NULL,
+        weightedAverage DOUBLE UNSIGNED NOT NULL,
+        PRIMARY KEY (exchange, pair, period, date),
+        FOREIGN key (exchange, pair) REFERENCES currency_pair (exchange, pair) ON DELETE CASCADE
     )
     """
 table[
     "temp_chart_data"
 ] = """
-    CREATE TEMPORARY TABLE `temp_chart_data` (
-        `exchange` VARCHAR(15) NOT NULL,
-        `pair` VARCHAR(15) NOT NULL,
-        `period` INTEGER UNSIGNED NOT NULL,
-        `date` BIGINT UNSIGNED NOT NULL,
-        PRIMARY KEY (`exchange`, `pair`, `period`, `date`)
+    CREATE TEMPORARY TABLE temp_chart_data (
+        exchange VARCHAR(15) NOT NULL,
+        pair VARCHAR(15) NOT NULL,
+        period INTEGER UNSIGNED NOT NULL,
+        date BIGINT UNSIGNED NOT NULL,
+        PRIMARY KEY (exchange, pair, period, date)
     )
     """
 
@@ -49,32 +48,32 @@ query = {}
 query[
     "insert_currency_pair"
 ] = """
-    INSERT IGNORE INTO `currency_pair` (`exchange`, `pair`) VALUES (%s, %s);
+    INSERT OR IGNORE INTO currency_pair VALUES (?, ?)
     """
 query[
     "insert_chart_data"
 ] = """
-    INSERT IGNORE INTO `chart_data` (`exchange`, `pair`, `period`, `date`, `high`, `low`, `open`, `close`, weightedAverage) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s);
+    INSERT OR IGNORE INTO chart_data VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     """
 query[
     "is_valid_currency_pair"
 ] = """
-    SELECT EXISTS (SELECT * from `currency_pair` WHERE `exchange`=%s AND `pair`=%s)
+    SELECT EXISTS (SELECT * from currency_pair WHERE exchange=? AND pair=?)
     """
 query[
     "insert_temp_chart_data"
 ] = """
-    INSERT IGNORE INTO `temp_chart_data` (`exchange`, `pair`, `period`, `date`) VALUES (%s, %s, %s, %s);
+    INSERT OR IGNORE INTO temp_chart_data VALUES (?, ?, ?, ?)
     """
 query[
     "compare_chart_data"
 ] = """
-    SELECT `date` FROM `temp_chart_data` WHERE (`exchange`, `pair`, `period`, `date`) NOT IN (SELECT `exchange`, `pair`, `period`, `date` FROM `chart_data`)
+    SELECT date FROM temp_chart_data WHERE (exchange, pair, period, date) NOT IN (SELECT exchange, pair, period, date FROM chart_data)
     """
-query["drop_temp_chart_data_table"] = "DROP TEMPORARY TABLE `temp_chart_data`"
+query["drop_temp_chart_data_table"] = "DROP TABLE temp_chart_data"
 query[
     "get_chart_data"
-] = "SELECT `high`, `low`, `open`, `close`, `weightedAverage` FROM `chart_data` WHERE `exchange`=%s AND `pair`=%s AND `period`=%s AND `date`=%s"
+] = "SELECT high, low, open, close, weightedAverage FROM chart_data WHERE exchange=? AND pair=? AND period=? AND date=?"
 
 
 class Window(object):
@@ -111,13 +110,7 @@ class ExchangeDatabase(object):
     class __ExchangeDatabase(object):
         def __init__(self):
             self.mutex = Lock()
-            mysql_host = os.environ.get("MYSQL_HOST")
-            mysql_user = os.environ.get("MYSQL_USER")
-            mysql_pass = os.environ.get("MYSQL_PASS")
-            mysql_db = os.environ.get("MYSQL_DB")
-            self.cnx = mysql.connector.connect(
-                host=mysql_host, user=mysql_user, password=mysql_pass, db=mysql_db
-            )
+            self.cnx = sqlite3.connect("trading_sim.db")
             self.cursor = self.cnx.cursor()
             self.exchanges = {PoloniexWrapper.EXCHANGE_NAME: PoloniexWrapper()}
             # Instantiate the currency pair table.
@@ -132,8 +125,10 @@ class ExchangeDatabase(object):
                 data = list(zip([exchange_name] * len(pairs), pairs))
                 self.cursor.executemany(query["insert_currency_pair"], data)
                 self.cnx.commit()
+            print("done")
 
         def register_chart_data(self, exchange, currency_pair, period, start, end):
+            print("start register_chart_data")
             exchange = self.exchanges[exchange]
             data = pd.DataFrame()
             data["date"] = [date for date in range(start, end + period, period)]
@@ -187,20 +182,25 @@ class ExchangeDatabase(object):
                 with self.mutex:
                     self.cursor.executemany(query["insert_chart_data"], data)
                     self.cnx.commit()
+            print("done register_chart_data")
 
         def is_valid_currency_pair(self, exchange, pair):
+            print("start is_valid_currency_pair")
             with self.mutex:
                 self.cursor.execute(query["is_valid_currency_pair"], (exchange, pair))
                 for data in self.cursor:
                     return data[0] != False
+            print("done is_valid_currency_pair")
 
         def get_chart_data(self, exchange, pair, period, date):
+            print("start get_chart_data")
             with self.mutex:
                 self.cursor.execute(
                     query["get_chart_data"], (exchange, pair, period, date)
                 )
                 for data in self.cursor:
                     return data
+            print("done get_chart_data")
 
         def is_valid_exchange(self, exchange):
             return exchange in self.exchanges

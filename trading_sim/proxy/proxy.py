@@ -11,6 +11,7 @@ from exchange.exchange_database import ExchangeDatabase
 from action.action_factory import ActionFactory
 from action.action_register_test_strategy import ActionRegisterTestStrategy
 from event.event_error import EventError
+from action.action_error import ActionError
 
 
 class Proxy(object):
@@ -33,11 +34,9 @@ class Proxy(object):
         data = conn.recv(Util.BUFFER_SIZE)
         action = ActionFactory.instantiate(data)
         if isinstance(action, ActionRegisterTestStrategy):
-            logger.info("Instantiating a new test strategy")
+            logger.debug("Instantiating a new test strategy")
             Strategy(conn, addr, action)
-        else:
-            logger.info("Invalid instantiation of a test strategy: closing the socket")
-            conn.send(
-                EventError.instantiate("Invalid instantiation of a test strategy")
-            )
+        elif isinstance(action, ActionError):
+            logger.info(action.error_type)
+            conn.send(EventError.instantiate(action.error_type))
         conn.close()

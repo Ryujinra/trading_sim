@@ -7,7 +7,7 @@ This TCP socket application can backtest multiple trading strategies concurrentl
 Ensure you have [sqlite3](https://www.sqlite.org/download.html) installed. Then, run:
 
 ```
-git trading_sim https://github.com/kyhorne/trading_sim.git
+git clone https://github.com/kyhorne/trading_sim.git
 cd trading_sim
 pip3 install -r requirements.txt
 cd trading_sim

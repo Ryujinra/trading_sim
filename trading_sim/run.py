@@ -5,8 +5,6 @@ from client.scheduler import Scheduler
 from client.proxy_api import ProxyAPI
 from util.logger import logger
 
-# self.cnx = sqlite3.connect("trading_sim.db")
-
 
 class Strategy1(ProxyAPI):
     def __init__(self):

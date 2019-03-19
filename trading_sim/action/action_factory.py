@@ -9,30 +9,39 @@ from .action_new_chart_data import ActionNewChartData
 from util.logger import logger
 from event.event_type import EventType
 from .action_ok import ActionOk
+from event.event_error import EventError
 
 
 class ActionFactory(object):
     @staticmethod
-    def instantiate(msg):
+    def instantiate(event):
         try:
-            msg = json.loads((msg.decode()))
+            event = json.loads((event.decode()))
         except ValueError:
-            logger.debug("Message is not valid json")
-            return None
-        if any(key not in msg for key in ("eventType", "payload")):
+            logger.debug("{} is not valid json".format(event))
+            return ActionError(
+                EventError.instantiate("{}: is not valid json".format(event))
+            )
+        if any(key not in event for key in ("eventType", "payload")):
             logger.debug("Event does not contain an event type or payload")
-            return None
-        logger.info("New message: {}".format(msg["eventType"]))
+            return ActionError(
+                EventError.instantiate(
+                    "Event does not contain an event type or payload"
+                )
+            )
+        logger.info("New message: {}".format(event["eventType"]))
         return {
             EventType.REGISTER_TEST_STRATEGY.value: lambda: ActionRegisterTestStrategy(
-                msg["payload"]
+                event["payload"]
             ),
-            EventType.LIMIT_ORDER.value: lambda: ActionLimitOrder(msg["payload"]),
+            EventType.LIMIT_ORDER.value: lambda: ActionLimitOrder(event["payload"]),
             EventType.TICK.value: lambda: ActionTick(),
             EventType.END_OF_CHART_DATA.value: lambda: ActionEndOfChartData(
-                msg["payload"]
+                event["payload"]
             ),
-            EventType.NEW_CHART_DATA.value: lambda: ActionNewChartData(msg["payload"]),
-            EventType.ERROR.value: lambda: ActionError(msg["payload"]),
+            EventType.NEW_CHART_DATA.value: lambda: ActionNewChartData(
+                event["payload"]
+            ),
+            EventType.ERROR.value: lambda: ActionError(event["payload"]),
             EventType.OK.value: lambda: ActionOk(),
-        }[msg["eventType"]]().action_type
+        }[event["eventType"]]().action_type

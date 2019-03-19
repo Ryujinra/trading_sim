@@ -1,5 +1,3 @@
-import time
-
 from .action import Action
 
 

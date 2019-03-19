@@ -67,6 +67,7 @@ class PercentChangeAccumulator(object):
 
 class Strategy(object):
     def __init__(self, conn, addr, action):
+        logger.debug("Instantiating a new test strategy")
         # Whether this strategy is actively listening and handling requests.
         self.is_running = True
         # Maintain a socket connection with the client.
@@ -99,6 +100,7 @@ class Strategy(object):
         # The curr_chart_data variable stores the state of the current chart
         # data referenced by the chart data iterator.
         self.curr_chart_data = None
+        logger.debug("Sending ok")
         self.conn.send(EventOk.instantiate())
         # Start listening for requests.
         self.listener()
@@ -158,12 +160,13 @@ class Strategy(object):
         while self.is_running:
             logger.info("Listening...")
             data = self.conn.recv(Util.BUFFER_SIZE)
-            self.handler(ActionFactory.instantiate(data))
+            self.reducer(ActionFactory.instantiate(data))
 
-    def handler(self, action):
+    def reducer(self, action):
         if isinstance(action, ActionLimitOrder):
             self.new_limit_order(action)
         elif isinstance(action, ActionTick):
             self.tick()
         else:
-            logger.debug("Invalid message")
+            logger.debug("Unexpected action: {}".format(action))
+            self.is_running = False

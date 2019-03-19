@@ -1,26 +1,22 @@
 import argparse
 
 from proxy.proxy import Proxy
-from client.scheduler import Scheduler
-from client.proxy_api import ProxyAPI
-from util.logger import logger
+from client.dispatcher import Dispatcher
+from client.strategy import Strategy
 
-
-class Strategy1(ProxyAPI):
-    def __init__(self):
-        ProxyAPI.__init__(self, "POLONIEX", "BTC_XMR", 14400, 1488700800, 1517572800)
-
-    def handler(self, data):
-        high, low, open, close, weighted_average = data
-        if weighted_average > 0.0263:
-            logger.info("Making a sell order at price: {:.5f}".format(weighted_average))
-            self.sell_order()
+# Example strategy...
+def strategy():
+    # Instantiate the Strategy generator.
+    strategy = Strategy("POLONIEX", "BTC_XMR", 14400, 1488700800, 1517572800)
+    for high, low, open, close, weighted_average in strategy:
+        threshold = 0.0263
+        # Place a sell order when the candlestick average is above a certain
+        # threshold.
+        if weighted_average > threshold:
+            strategy.new_sell_order()
+        # Likewise, place a buy order when the candlestick is below a certain threshold.
         else:
-            logger.info("Making a buy order at price: {:.5f}".format(weighted_average))
-            self.buy_order()
-
-    def analyze(self):
-        print("Done")
+            strategy.new_buy_order()
 
 
 if __name__ == "__main__":
@@ -29,13 +25,15 @@ if __name__ == "__main__":
         "-p", "--proxy", help="instantiate the proxy server", action="store_true"
     )
     parser.add_argument(
-        "-s",
-        "--strategies",
-        help="begin the analysis of various test strategies",
+        "-d",
+        "--dispatch",
+        help="dispatch the strategies for execution",
         action="store_true",
     )
     args = parser.parse_args()
     if args.proxy:
-        Proxy()
-    elif args.strategies:
-        Scheduler([Strategy1])
+        Proxy()  # Instantiate the Proxy.
+    elif args.dispatch:
+        # Example...
+        # Dispatch a list of strategies...
+        Dispatcher([strategy, strategy, strategy])

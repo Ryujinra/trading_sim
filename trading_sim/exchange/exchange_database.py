@@ -110,7 +110,7 @@ class ExchangeDatabase(object):
     class __ExchangeDatabase(object):
         def __init__(self):
             self.mutex = Lock()
-            self.cnx = sqlite3.connect("trading_sim.db")
+            self.cnx = sqlite3.connect("trading_sim.db", check_same_thread=False)
             self.cursor = self.cnx.cursor()
             self.exchanges = {PoloniexWrapper.EXCHANGE_NAME: PoloniexWrapper()}
             # Instantiate the currency pair table.

@@ -2,7 +2,7 @@ import pandas as pd
 from threading import Lock
 import sqlite3
 
-from exchange.poloniex import PoloniexWrapper
+from exchange.poloniex_wrapper import PoloniexWrapper
 
 
 table = {}
@@ -28,6 +28,7 @@ table[
         open DOUBLE UNSIGNED NOT NULL,
         close DOUBLE UNSIGNED NOT NULL,
         weightedAverage DOUBLE UNSIGNED NOT NULL,
+        volume DOUBLE UNSIGNED NOT NULL,
         PRIMARY KEY (exchange, pair, period, date),
         FOREIGN key (exchange, pair) REFERENCES currency_pair (exchange, pair) ON DELETE CASCADE
     )
@@ -53,7 +54,7 @@ query[
 query[
     "insert_chart_data"
 ] = """
-    INSERT OR IGNORE INTO chart_data VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT OR IGNORE INTO chart_data VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """
 query[
     "is_valid_currency_pair"
@@ -73,7 +74,7 @@ query[
 query["drop_temp_chart_data_table"] = "DROP TABLE temp_chart_data"
 query[
     "get_chart_data"
-] = "SELECT high, low, open, close, weightedAverage FROM chart_data WHERE exchange=? AND pair=? AND period=? AND date=?"
+] = "SELECT high, low, open, close, weightedAverage, volume FROM chart_data WHERE exchange=? AND pair=? AND period=? AND date=?"
 
 
 class Window(object):
@@ -110,6 +111,7 @@ class ExchangeDatabase(object):
     class __ExchangeDatabase(object):
         def __init__(self):
             self.mutex = Lock()
+            # Connect to the local sqlite3 database.
             self.cnx = sqlite3.connect("trading_sim.db", check_same_thread=False)
             self.cursor = self.cnx.cursor()
             self.exchanges = {PoloniexWrapper.EXCHANGE_NAME: PoloniexWrapper()}
@@ -125,10 +127,8 @@ class ExchangeDatabase(object):
                 data = list(zip([exchange_name] * len(pairs), pairs))
                 self.cursor.executemany(query["insert_currency_pair"], data)
                 self.cnx.commit()
-            print("done")
 
         def register_chart_data(self, exchange, currency_pair, period, start, end):
-            print("start register_chart_data")
             exchange = self.exchanges[exchange]
             data = pd.DataFrame()
             data["date"] = [date for date in range(start, end + period, period)]
@@ -138,6 +138,8 @@ class ExchangeDatabase(object):
             data = data.reindex(columns=["exchange", "pair", "period", "date"])
             window = Window(period)
             with self.mutex:
+                # Find the difference between the data currently in the
+                # database with the data required by the registered strategy.
                 self.cursor.execute(table["temp_chart_data"])
                 self.cnx.commit()
                 self.cursor.executemany(
@@ -150,6 +152,8 @@ class ExchangeDatabase(object):
                     window.next(date[0])
                 self.cursor.execute(query["drop_temp_chart_data_table"])
                 self.cnx.commit()
+            # If there exists data that needs to be added, then query the API
+            # for the given window.
             for start, end in window.date_ranges:
                 if start is None and end is None:
                     break
@@ -176,35 +180,32 @@ class ExchangeDatabase(object):
                         "open",
                         "close",
                         "weightedAverage",
+                        "volume",
                     ]
                 )
                 data = [tuple(data) for data in data.values]
                 with self.mutex:
                     self.cursor.executemany(query["insert_chart_data"], data)
                     self.cnx.commit()
-            print("done register_chart_data")
 
         def is_valid_currency_pair(self, exchange, pair):
-            print("start is_valid_currency_pair")
             with self.mutex:
                 self.cursor.execute(query["is_valid_currency_pair"], (exchange, pair))
                 for data in self.cursor:
                     return data[0] != False
-            print("done is_valid_currency_pair")
 
         def get_chart_data(self, exchange, pair, period, date):
-            print("start get_chart_data")
             with self.mutex:
                 self.cursor.execute(
                     query["get_chart_data"], (exchange, pair, period, date)
                 )
                 for data in self.cursor:
                     return data
-            print("done get_chart_data")
 
         def is_valid_exchange(self, exchange):
             return exchange in self.exchanges
 
+    # The database class is a singleton object to enforce mutual exclusion.
     instance = None
 
     def __init__(self):

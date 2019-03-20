@@ -11,5 +11,6 @@ class ActionNewChartData(Action):
             candlestick["open"],
             candlestick["close"],
             candlestick["weightedAverage"],
+            candlestick["volume"],
         )
         self.action_type = self

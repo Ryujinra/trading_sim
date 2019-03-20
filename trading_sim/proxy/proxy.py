@@ -22,23 +22,30 @@ class Proxy(object):
 
     def listener(self):
         while 1:
-            logger.info("Listening...")
+            logger.info("Proxy is listening...")
             self.proxy.listen(Util.MAX_STRATEGIES)
             conn, addr = self.proxy.accept()
-            # Submit new a connection to the thread pool.
+            conn.settimeout(Util.TIMEOUT)
+            # Submit the new connection to the thread pool.
             self.thread_pool.submit(lambda: self.handler(conn, addr))
 
     def handler(self, conn, addr):
         ip, port = addr
         logger.info("New connection: {}:{}".format(ip, port))
-        data = conn.recv(Util.BUFFER_SIZE)
+        try:
+            data = conn.recv(Util.BUFFER_SIZE)
+        except socket.timeout:
+            logger.debug("Connection: {}:{}: timed out".format(ip, port))
+            conn.close()
+            return
         # Instantiate the action.
         action = ActionFactory.instantiate(data)
         # Handle the instantiated action.
         if isinstance(action, ActionRegisterTestStrategy):
+            # Instantiate a new strategy.
             Strategy(conn, addr, action)
         elif isinstance(action, ActionError):
-            logger.info(action.error_type)
+            # Notify connection of the error.
             conn.send(EventError.instantiate(action.error_type))
         # Close the connection after handling the request.
         conn.close()

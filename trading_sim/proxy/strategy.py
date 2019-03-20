@@ -7,11 +7,10 @@ from exchange.exchange_database import ExchangeDatabase
 from action.action_factory import ActionFactory
 from event.event_new_chart_data import EventNewChartData
 from event.event_end_of_chart_data import EventEndOfChartData
-from action.action_factory import ActionFactory
 from action.action_limit_order import ActionLimitOrder
 from action.action_tick import ActionTick
-from action.action_end_of_chart_data import ActionEndOfChartData
 from event.event_ok import EventOk
+from event.event_error import EventError
 
 
 class PercentChange(object):
@@ -37,23 +36,25 @@ class PercentChange(object):
 class PercentChangeAccumulator(object):
     def __init__(self):
         self.percent_changes = []
-        self.sell_counter = 0
+        self.trades_made = 0
 
     def buy(self, v):
-        self.percent_changes.append(PercentChange())
-        self.percent_changes[-1].v1 = v
-        logger.debug("Successfully registered a new buy order")
+        if not self.percent_changes or self.percent_changes[-1].is_complete():
+            self.trades_made += 1
+            self.percent_changes.append(PercentChange())
+            self.percent_changes[-1].v1 = v
+            logger.debug("Successfully registered a new buy order")
 
     def sell(self, v):
         # Ignore the sell order if there exist no existing buy orders.
-        if not self.percent_changes or self.sell_counter == len(self.percent_changes):
+        if not self.percent_changes or self.percent_changes[-1].is_complete():
             logger.debug(
                 "Failed to register a new sell order because there exist no open buy orders"
             )
             return
         # Register the sell order and increment the sell order count.
-        self.percent_changes[self.sell_counter].v2 = v
-        self.sell_counter += 1
+        self.trades_made += 1
+        self.percent_changes[-1].v2 = v
         logger.debug("Successfully registered a new sell order")
 
     def compute_net_percent_change(self):
@@ -67,7 +68,7 @@ class PercentChangeAccumulator(object):
 
 class Strategy(object):
     def __init__(self, conn, addr, action):
-        logger.debug("Instantiating a new test strategy")
+        logger.info("Instantiating a new test strategy")
         # Whether this strategy is actively listening and handling requests.
         self.is_running = True
         # Maintain a socket connection with the client.
@@ -144,29 +145,36 @@ class Strategy(object):
             percent_change = (
                 self.percent_change_accumulator.compute_net_percent_change()
             )
-            self.conn.send(EventEndOfChartData.instantiate(percent_change))
+            trades_made = self.percent_change_accumulator.trades_made
+            self.conn.send(EventEndOfChartData.instantiate(percent_change, trades_made))
             self.is_running = False
         else:
             logger.debug("Sending the chart data to the client")
             # If there still exist chart data, then unlock this strategy to
             # receive a limit order and send the chart data to the client.
             self.is_locked = False
-            high, low, open, close, weightedAverage = self.curr_chart_data
+            high, low, open, close, weighted_average, volume = self.curr_chart_data
             self.conn.send(
-                EventNewChartData.instantiate(high, low, open, close, weightedAverage)
+                EventNewChartData.instantiate(
+                    high, low, open, close, weighted_average, volume
+                )
             )
 
     def listener(self):
         while self.is_running:
-            logger.info("Listening...")
+            logger.info("Strategy is listening...")
             data = self.conn.recv(Util.BUFFER_SIZE)
-            self.reducer(ActionFactory.instantiate(data))
+            self.handler(ActionFactory.instantiate(data))
 
-    def reducer(self, action):
+    def handler(self, action):
         if isinstance(action, ActionLimitOrder):
             self.new_limit_order(action)
         elif isinstance(action, ActionTick):
             self.tick()
         else:
-            logger.debug("Unexpected action: {}".format(action))
+            self.conn.send(
+                EventError.instantiate(
+                    "Received a unexpected action: {}".format(action)
+                )
+            )
             self.is_running = False

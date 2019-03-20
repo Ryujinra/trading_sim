@@ -15,21 +15,22 @@ from event.event_error import EventError
 class ActionFactory(object):
     @staticmethod
     def instantiate(event):
+        # Try to parse the event into json.
         try:
             event = json.loads((event.decode()))
         except ValueError:
-            logger.debug("{} is not valid json".format(event))
             return ActionError(
                 EventError.instantiate("{}: is not valid json".format(event))
             )
+        # Ensure the event has a type and payload.
         if any(key not in event for key in ("eventType", "payload")):
-            logger.debug("Event does not contain an event type or payload")
             return ActionError(
                 EventError.instantiate(
                     "Event does not contain an event type or payload"
                 )
             )
         logger.info("New message: {}".format(event["eventType"]))
+        # Instantiate the event.
         return {
             EventType.REGISTER_TEST_STRATEGY.value: lambda: ActionRegisterTestStrategy(
                 event["payload"]

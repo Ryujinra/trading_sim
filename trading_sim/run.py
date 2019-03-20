@@ -4,19 +4,37 @@ from proxy.proxy import Proxy
 from client.dispatcher import Dispatcher
 from client.strategy import Strategy
 
-# Example strategy...
-def strategy():
-    # Instantiate the Strategy generator.
-    strategy = Strategy("POLONIEX", "BTC_XMR", 14400, 1488700800, 1517572800)
-    for high, low, open, close, weighted_average in strategy:
-        threshold = 0.0263
+
+class Example1(Strategy):
+    def __init__(self):
+        super().__init__("POLONIEX", "BTC_XMR", 14400, 1488700800, 1488988800)
+
+    def handler(self, data):
+        high, low, open, close, weighted_average, volume = data
+        threshold = 0.01158483
         # Place a sell order when the candlestick average is above a certain
         # threshold.
         if weighted_average > threshold:
-            strategy.new_sell_order()
+            self.new_sell_order()
         # Likewise, place a buy order when the candlestick is below a certain threshold.
         else:
-            strategy.new_buy_order()
+            self.new_buy_order()
+
+
+class Example2(Strategy):
+    def __init__(self):
+        super().__init__("POLONIEX", "BTC_ETH", 14400, 1488700800, 1488988800)
+
+    def handler(self, data):
+        high, low, open, close, weighted_average, volume = data
+        threshold = 0.01511201
+        # Place a sell order when the candlestick average is above a certain
+        # threshold.
+        if weighted_average > threshold:
+            self.new_sell_order()
+        # Likewise, place a buy order when the candlestick is below a certain threshold.
+        else:
+            self.new_buy_order()
 
 
 if __name__ == "__main__":
@@ -32,8 +50,8 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
     if args.proxy:
-        Proxy()  # Instantiate the Proxy.
+        # Instantiate the Proxy.
+        Proxy()
     elif args.dispatch:
-        # Example...
-        # Dispatch a list of strategies...
-        Dispatcher([strategy, strategy, strategy])
+        # Dispatch a list of strategies.
+        Dispatcher([Example1, Example1, Example2])

@@ -1,4 +1,5 @@
 import socket
+import threading
 
 from util.util import Util
 from event.event_register_test_strategy import EventRegisterTestStrategy
@@ -26,8 +27,11 @@ def await_ok(f):
     return wrapper
 
 
-class Strategy:
+class Strategy(threading.Thread):
     def __init__(self, exchange, pair, period, start, end):
+        threading.Thread.__init__(self)
+        # Listeners to this strategy.
+        self.listeners = []
         # Instantiate the socket and bind to the proxy address.
         self._socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self._socket.connect((Util.PROXY_HOST, Util.PROXY_PORT))
@@ -52,16 +56,35 @@ class Strategy:
         return self
 
     def __next__(self):
-        # Send tick event to the proxy server and await a response.
+        # Send a tick event to the proxy server and return the response.
         self._socket.send(EventTick.instantiate())
         buf = self._socket.recv(Util.BUFFER_SIZE)
-        action = ActionFactory.instantiate(buf)
-        if isinstance(action, ActionNewChartData):
-            return action.data
-        self._socket.close()
-        if isinstance(action, ActionEndOfChartData):
-            raise StopIteration()
-        elif isinstance(action, ActionError):
-            raise Exception(action.error_type)
-        else:
-            raise Exception("Unexpected action: {}".format(action))
+        return ActionFactory.instantiate(buf)
+
+    def run(self):
+        for action in self:
+            if isinstance(action, ActionNewChartData):
+                self.handler(action.data)
+                continue
+            self._socket.close()
+            if isinstance(action, ActionEndOfChartData):
+                # Notify all listeners of the strategy's percent change.
+                self.notify_listeners(
+                    (self.__class__.__name__, action.percent_change, action.trades_made)
+                )
+                # Break from the loop.
+                break
+            elif isinstance(action, ActionError):
+                raise Exception(action.error_type)
+            else:
+                # Unexpected event from the proxy.
+                raise Exception("Unexpected action: {}".format(action))
+
+    def add_listener(self, listener):
+        # Add a listener to the listener collection.
+        self.listeners.append(listener)
+
+    def notify_listeners(self, data):
+        # Notify all listeners of some data.
+        for listener in self.listeners:
+            listener.handler(data)

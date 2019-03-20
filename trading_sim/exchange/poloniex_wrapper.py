@@ -3,12 +3,10 @@ import requests
 import numpy as np
 import pandas as pd
 
-from util.logger import logger
 from .util.exchange_logger import exchange_logger
-from .util.exchange_api import ExchangeAPI
 
 
-class PoloniexWrapper(ExchangeAPI):
+class PoloniexWrapper:
 
     EXCHANGE_NAME = "POLONIEX"
 
@@ -31,4 +29,4 @@ class PoloniexWrapper(ExchangeAPI):
             start=start,
             end=end,
         )
-        return pd.DataFrame(chart_data).drop(columns=["volume", "quoteVolume"])
+        return pd.DataFrame(chart_data).drop(columns=["quoteVolume"])

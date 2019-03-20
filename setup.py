@@ -1,7 +1,7 @@
 from distutils.core import setup
 
 setup(
-    name='crypto_trading_bot',
+    name='trading_sim',
     version='1.0',
     author='Kyle Horne',
     author_email='me@kyhorne.com',

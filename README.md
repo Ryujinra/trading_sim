@@ -16,5 +16,5 @@ python3 run.py -p
 
 Then, in a new terminal window, run:
 ```
-python3 run.py -s
+python3 run.py -d
 ```

@@ -23,7 +23,7 @@ class Example1(Strategy):
 
 class Example2(Strategy):
     def __init__(self):
-        super().__init__("POLONIEX", "BTC_ETH", 14400, 1488700800, 1488988800)
+        super().__init__("POLONIEX", "BTC_ETH", 1800, 1488700800, 1488988800)
 
     def handler(self, data):
         high, low, open, close, weighted_average, volume = data

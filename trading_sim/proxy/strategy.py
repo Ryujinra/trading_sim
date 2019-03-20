@@ -13,7 +13,7 @@ from event.event_ok import EventOk
 from event.event_error import EventError
 
 
-class PercentChange(object):
+class PercentChange:
     def __init__(self):
         self.v1 = None
         self.v2 = None
@@ -33,7 +33,7 @@ class PercentChange(object):
         return 0
 
 
-class PercentChangeAccumulator(object):
+class PercentChangeAccumulator:
     def __init__(self):
         self.percent_changes = []
         self.trades_made = 0
@@ -66,7 +66,7 @@ class PercentChangeAccumulator(object):
         return net
 
 
-class Strategy(object):
+class Strategy:
     def __init__(self, conn, addr, action):
         logger.info("Instantiating a new test strategy")
         # Whether this strategy is actively listening and handling requests.

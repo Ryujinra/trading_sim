@@ -3,7 +3,7 @@ import json
 from .event_type import EventType
 
 
-class EventRegisterTestStrategy(object):
+class EventRegisterTestStrategy:
     @staticmethod
     def instantiate(exchange, pair, period, start, end):
         return json.dumps(

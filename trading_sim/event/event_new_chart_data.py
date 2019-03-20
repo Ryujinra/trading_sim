@@ -3,7 +3,7 @@ import json
 from .event_type import EventType
 
 
-class EventNewChartData(object):
+class EventNewChartData:
     @staticmethod
     def instantiate(high, low, open, close, weighted_average, volume):
         return json.dumps(

@@ -3,7 +3,7 @@ import json
 from .event_type import EventType
 
 
-class EventBuy(object):
+class EventBuy:
     @staticmethod
     def instantiate():
         return json.dumps(

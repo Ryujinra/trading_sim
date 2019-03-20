@@ -3,7 +3,7 @@ import json
 from .event_type import EventType
 
 
-class EventError(object):
+class EventError:
     @staticmethod
     def instantiate(errorType):
         return json.dumps(

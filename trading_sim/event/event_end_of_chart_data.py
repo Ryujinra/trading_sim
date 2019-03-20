@@ -3,7 +3,7 @@ import json
 from .event_type import EventType
 
 
-class EventEndOfChartData(object):
+class EventEndOfChartData:
     @staticmethod
     def instantiate(percent_change, trades_made):
         return json.dumps(

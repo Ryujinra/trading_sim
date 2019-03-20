@@ -107,8 +107,8 @@ class Window(object):
         return self._date_ranges
 
 
-class ExchangeDatabase(object):
-    class __ExchangeDatabase(object):
+class ExchangeDatabase:
+    class __ExchangeDatabase:
         def __init__(self):
             self.mutex = Lock()
             # Connect to the local sqlite3 database.

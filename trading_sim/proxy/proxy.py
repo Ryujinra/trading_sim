@@ -10,7 +10,7 @@ from event.event_error import EventError
 from action.action_error import ActionError
 
 
-class Proxy(object):
+class Proxy:
     def __init__(self):
         # Instantiate the thread pool with Util.MAX_STRATEGIES workers.
         self.thread_pool = ThreadPoolExecutor(max_workers=Util.MAX_STRATEGIES)

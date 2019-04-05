@@ -1,6 +1,6 @@
 # trading_sim
 
-This TCP socket framwork can backtest trading strategies concurrently. The system uses a load balancer to instantiate multiple strategies with a server. The server exposes a uniform wrapper to various financial exchanges and audits the performance of each trading strategy; thus, allowing the client to efficiently test and analyze multiple trading strategies 
+This TCP socket framwork can backtest trading strategies concurrently. The system uses a load balancer to instantiate multiple strategies with a server. The server exposes a uniform wrapper to various financial exchanges and audits the performance of each trading strategy; thus, allowing the client to efficiently test and analyze multiple trading strategies simultaneously. 
 
 ## Usage
 
